@@ -1,0 +1,2 @@
+strategy,dataset,seed,final_accuracy,forgetting,time_seconds,routes,macs_saved_pct,routing_macs,task_accuracies,acc_matrix
+ea_nps,permuted_mnist,42,0.9426,0.0315,254.4,sgd→er→er→freeze→freeze,-17.1,9859584,"[np.float64(0.9741), np.float64(0.9764999999999999), np.float64(0.9697999999999999), np.float64(0.9497749999999999), np.float64(0.9425999999999999)]","[[0.9741], [0.9759, 0.9771], [0.9639, 0.9687, 0.9768], [0.949, 0.9488, 0.9621, 0.9392], [0.9348, 0.9532, 0.9591, 0.8941, 0.9718]]"

@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+
+# Datasets (auto-downloaded by Avalanche)
+data/
+
+# Logs
+wandb/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
