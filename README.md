@@ -209,7 +209,7 @@ vvip_r/
 │   ├── battery_full.csv / battery_fast.csv / permuted_battery.csv
 │   ├── ablation.csv / ablation_fast.csv
 │   ├── proxy_validation.csv          # Per-seed proxy agreement data
-│   └── figures/                      # 7 publication-quality PNGs
+│   └── figures/                      # 7 PNGs
 ```
 
 ---
