@@ -224,7 +224,7 @@ Conv2d(3→32, 3×3) → ReLU → MaxPool(2×2)
 
 - **Task:** 5 tasks, each a random pixel-permutation of MNIST (28$\times$28 grayscale, 10 digits)
 - **Generation:** Avalanche's `PermutedMNIST(n_experiences=5, seed=SEED)` [21]
-- **Auto-downloaded:** Original MNIST ($\sim$10 MB), permutations applied in memory
+- **Auto-downloaded:** Original MNIST (~10 MB), permutations applied in memory
 - **Samples per task:** 10,000 training + 2,000 test
 - **Total:** 60,000 across 5 tasks
 
@@ -237,9 +237,9 @@ Conv2d(3→32, 3×3) → ReLU → MaxPool(2×2)
 ### CORe50 (NC scenario)
 
 - **Set:** 50 real-world object classes across 11 categories, 128$\times$128 color video (downsampled to 32$\times$32)
-- **Download:** Avalanche's `CORe50(scenario="nc", mini=True)` — $\sim$300 MB
+- **Download:** Avalanche's `CORe50(scenario="nc", mini=True)` — ~300 MB
 - **Benchmark:** 9 training experiences + 1 complete test set
-- **Total images:** $\sim$130,000
+- **Total images:** ~130,000
 
 ---
 
@@ -266,13 +266,13 @@ All at 200 DPI. Located in `vip_res/figures/`.
 | File | Category | Role | When to run |
 |---|---|---|---|
 | `ea_nps_strategy.py` | **Core library** | `NPSComputer`, `EnergyProfiler`, `EANPSPlugin`, `EANPS`. Defines NPS computation, energy model, routing policy, buffer management. | Never directly |
-| `experiments_permuted_mnist.py` | **Main experiment** | 5 strats $\times$ 3 seeds + battery + ablation (Expts 1–5). Self-contained for Kaggle. | GPU, $\sim$25 min |
-| `experiments_core50.py` | **Secondary experiment** | 5 strats $\times$ 3 seeds on CORe50 NC. Self-contained for Kaggle. | GPU, $\sim$45 min |
-| `experiments_ablation.py` | **Ablation** | Standalone fast-decay ablation (3 variants $\times$ 3 seeds). | GPU, $\sim$15 min |
-| `tau_sweep.py` | **Hyperparameter sweep** | Sweeps $\tau \in [0, 1]$ on PermutedMNIST (fast decay). Outputs 2 CSVs. | GPU, $\sim$30 min |
-| `dynamic_baselines.ipynb` | **Baseline comparison** | EA-NPS vs random freeze vs early stopping vs ER. Outputs 1 CSV. | GPU, $\sim$30 min |
-| `validate_proxy.py` | **Proxy validation** | 20-seed proxy vs gradient NPS comparison. Outputs 1 PNG + 1 CSV. | CPU, $\sim$5 min |
-| `generate_figures.py` | **Figure generation** | Reads CSVs from `vip_res/`, generates all 7 figures. | CPU, $\sim$2 min |
+| `experiments_permuted_mnist.py` | **Main experiment** | 5 strats $\times$ 3 seeds + battery + ablation (Expts 1–5). Self-contained for Kaggle. | GPU, ~25 min |
+| `experiments_core50.py` | **Secondary experiment** | 5 strats $\times$ 3 seeds on CORe50 NC. Self-contained for Kaggle. | GPU, ~45 min |
+| `experiments_ablation.py` | **Ablation** | Standalone fast-decay ablation (3 variants $\times$ 3 seeds). | GPU, ~15 min |
+| `tau_sweep.py` | **Hyperparameter sweep** | Sweeps $\tau \in [0, 1]$ on PermutedMNIST (fast decay). Outputs 2 CSVs. | GPU, ~30 min |
+| `dynamic_baselines.ipynb` | **Baseline comparison** | EA-NPS vs random freeze vs early stopping vs ER. Outputs 1 CSV. | GPU, ~30 min |
+| `validate_proxy.py` | **Proxy validation** | 20-seed proxy vs gradient NPS comparison. Outputs 1 PNG + 1 CSV. | CPU, ~5 min |
+| `generate_figures.py` | **Figure generation** | Reads CSVs from `vip_res/`, generates all 7 figures. | CPU, ~2 min |
 | `requirements.txt` | **Dependencies** | Exact pinned versions for full reproducibility. | Used by pip/uv |
 
 ### CSVs
