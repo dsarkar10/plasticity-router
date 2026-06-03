@@ -16,8 +16,8 @@ Before each training task, EA-NPS chooses one of four operations:
 
 ```
                        ┌──────────────────────────────┐
-                       │  Compute NPS = gradient       │
-                       │  conflict(new, buffer)        │
+                       │  Compute NPS = gradient      │
+                       │  conflict(new, buffer)       │
                        └──────────┬───────────────────┘
                                   │
                     ┌─────────────┴─────────────┐
@@ -27,15 +27,15 @@ Before each training task, EA-NPS chooses one of four operations:
                     ▼                           ▼
                ┌────────┐            ┌─────────────────────┐
                │  SGD   │            │   Battery ≥ β?      │
-               │(cheap) │            └──────┬──────────────┘
-               └────────┘           YES     │     NO
-                                    │       │
-                                    ▼       ▼
-                           ┌────────────┐  ┌────────────┐
-                           │ min(MAC)   │  │  Freeze    │
-                           │ ER vs EWC  │  │  top 10%   │
-                           └────────────┘  │  layers    │
-                                            └────────────┘
+               │(cheap) │            └──┬───────┬──────────┘
+               └────────┘           YES │       │ NO
+                                        │       │
+                                        ▼       ▼
+                               ┌────────────┐  ┌────────────┐
+                               │ min(MAC)   │  │  Freeze    │
+                               │ ER vs EWC  │  │  top 10%   │
+                               └────────────┘  │  layers    │
+                                               └────────────┘
 ```
 
 **Neural Plasticity Score (NPS):** `1 - cos(grad_new, grad_buffer)`. Measures how much learning the new task would overwrite previously learned knowledge. Range [0, 1] — 0 = aligned gradients (new data reinforces old), 1 = opposing gradients (new data will cause forgetting).
