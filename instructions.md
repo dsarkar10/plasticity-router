@@ -1,6 +1,6 @@
 # Build & Run Instructions
 
-This document tells a new user exactly how to go from a bare machine to reproducing every result in the paper.
+Reproduce every experiment and figure in the paper, from a bare machine.
 
 ---
 
@@ -71,7 +71,7 @@ pip install -r requirements.txt
 
 ### What gets installed
 
-All versions are pinned exactly to prevent future breakage:
+All versions pinned to prevent future breakage:
 ```
 avalanche-lib==0.6.0     # Continual learning framework (auto-downloads datasets)
 torch==2.12.0            # Deep learning backend
@@ -135,15 +135,15 @@ All datasets download **automatically** the first time you run an experiment:
 | MNIST | Any `experiments_permuted_mnist.py` run | `~/.avalanche/data/mnist/` | ~10 MB |
 | CORe50 | `experiments_core50.py` run | `~/.avalanche/data/core50/` | ~300 MB |
 
-**No manual download needed.** Avalanche handles everything. First run will show download progress bars.
+**No manual download needed.** Avalanche handles it. First run shows progress bars.
 
-**CORe50 note:** First download takes ~5 minutes (300 MB from Google Drive). Cached afterward. If download fails (rare), see [Avalanche CORe50 docs](https://avalanche.continualai.org/how-to#core50).
+**CORe50 note:** First download takes ~5 minutes (300 MB from Google Drive). Cached after that. If it fails (rare), see [Avalanche CORe50 docs](https://avalanche.continualai.org/how-to#core50).
 
 ---
 
 ## 6. Fast Path: Reproduce Figures Only (~2 min)
 
-If you only want to regenerate the figures from existing CSVs (no GPU needed):
+If you just want figures from existing CSVs (no GPU):
 
 ```bash
 # All 6 main figures
@@ -162,7 +162,7 @@ python3 validate_proxy.py
 - `layerwise_heatmap.png`
 - `proxy_validation.png`
 
-All at 200 DPI, publication quality.
+All at 200 DPI.
 
 ---
 
@@ -170,7 +170,8 @@ All at 200 DPI, publication quality.
 
 ### 7a. PermutedMNIST — All Experiments (Expts 1–5)
 
-This single script runs:
+This script runs:
+
 1. **Expt 1:** 5 strategies × 3 seeds — main benchmark
 2. **Expt 2–3:** Battery-accuracy tradeoff (SplitMNIST + PermutedMNIST)
 3. **Expt 4–5:** Ablation (default decay + fast decay)
@@ -220,7 +221,7 @@ ewc       0.7621  0.0479
 naive     0.7411  0.0389
 ```
 
-If your numbers differ by more than 0.01, check random seeds and hyperparameters match.
+If your numbers differ by more than 0.01, check seed and hyperparameter values.
 
 **Expected runtime:** ~25 minutes on Kaggle T4. ~4 hours on CPU.
 
@@ -257,7 +258,7 @@ ewc       0.0200  0.0001
 naive     0.0200  0.0000
 ```
 
-**Important:** CORe50 with a 630K-param CNN is at the edge of learnability. Expect ±0.01 variance. DER++ should always be above 0.07; Naive and EWC should be at 0.02 (chance for 50 classes).
+**Important:** CORe50 with a 630K-param CNN is near the learnability floor. Expect ±0.01 variance. DER++ should be above 0.07; Naive and EWC at 0.02 (chance for 50 classes).
 
 **Expected runtime:** ~45 minutes on T4. ~8+ hours on CPU (not recommended).
 
@@ -283,7 +284,7 @@ Outputs `vip_res/proxy_validation.csv` (per-seed data) + `vip_res/figures/proxy_
 
 ## 8. Move CSVs & Regenerate Figures
 
-After experiments complete, copy CSVs and regenerate figures:
+After experiments finish, copy CSVs and regenerate figures:
 
 ```bash
 # Move CSVs to vip_res/
@@ -300,7 +301,7 @@ python3 generate_figures.py
 
 ## 9. Kaggle Deployment (Alternative to Local GPU)
 
-If you don't have a GPU, run experiments on Kaggle:
+If you don't have a GPU, run on Kaggle:
 
 1. Go to [kaggle.com](https://kaggle.com) → Create → New Notebook
 2. Set Accelerator to "GPU T4 x2" (top-right Settings panel)
@@ -315,9 +316,9 @@ If you don't have a GPU, run experiments on Kaggle:
 8. Place them in `vip_res/` on your local machine
 9. Run `python3 generate_figures.py` locally to create figures
 
-**Note:** `proxy_validation.csv` is generated directly in `vip_res/` by `validate_proxy.py` — no copy step needed.
+**Note:** `proxy_validation.csv` goes directly to `vip_res/` from `validate_proxy.py` — no copy needed.
 
-**Note:** Each experiment script is fully self-contained for Kaggle. No external files needed.
+**Note:** Each experiment script is self-contained for Kaggle. No external files needed.
 
 ---
 

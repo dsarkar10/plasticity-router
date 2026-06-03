@@ -2,9 +2,9 @@
 
 **Dynamic continual-learning strategy routing for battery-constrained edge devices.**
 
-Continual learning on edge devices (smartphones, drones, IoT sensors) faces a fundamental tension: retaining knowledge across tasks requires computational overhead (replay buffers, regularization penalties), yet these devices operate under strict energy budgets. Existing CL methods apply a fixed training protocol regardless of how much battery remains — a phone at 5% spends the same compute as one at 95%.
+Continual learning on edge devices (phones, drones, IoT sensors) faces a fundamental tension: retaining knowledge across tasks costs compute (replay, regularization), but these devices run on battery. Most CL methods train the same way whether the battery is at 95% or 5%.
 
-EA-NPS solves this by dynamically picking the most energy-efficient training strategy **per task**, based on two real-time signals: (1) how much the new data conflicts with past knowledge (Neural Plasticity Score), and (2) how much battery is left.
+EA-NPS picks the cheapest viable training strategy **per task** using two signals: (1) how much the new data conflicts with past knowledge (Neural Plasticity Score), and (2) remaining battery.
 
 ---
 
@@ -38,21 +38,21 @@ Before each training task, EA-NPS chooses one of four operations:
                                                └────────────┘
 ```
 
-**Neural Plasticity Score (NPS):** `1 - cos(grad_new, grad_buffer)`. Measures how much learning the new task would overwrite previously learned knowledge. Range [0, 1] — 0 = aligned gradients (new data reinforces old), 1 = opposing gradients (new data will cause forgetting).
+**Neural Plasticity Score (NPS):** `1 - cos(grad_new, grad_buffer)`. Range [0, 1] — 0 means aligned gradients (new data reinforces old), 1 means opposing gradients (new data will overwrite old).
 
-**Battery:** Scalar in [0.05, 1.0] that decays by Δ per task (default Δ = 0.05, fast = 0.25). Threshold β = 0.2 triggers energy-saving mode.
+**Battery:** Scalar in [0.05, 1.0] decaying by Δ per task. Default Δ = 0.05, fast Δ = 0.25. β = 0.2 triggers energy saving.
 
-**Selective Freeze:** When battery is critical, EA-NPS computes per-layer NPS and freezes the top 10% most-conflicted layers (sets `requires_grad = False`), saving backpropagation through those parameters.
+**Selective Freeze:** When battery is critical, EA-NPS freezes the top 10% most-conflicted layers (`requires_grad = False`), saving backprop through those parameters.
 
 ### Zero-Backprop Activation Proxy
 
-Instead of backpropagating to compute per-layer NPS (costly for freeze decisions), EA-NPS offers a forward-pass-only proxy:
+Instead of backpropagating per-layer NPS (expensive for freeze decisions), EA-NPS has a forward-only proxy:
 
 ```python
 proxy_NPS_layer = 1 - cos(mean_activation(buffer_batch), mean_activation(new_batch))
 ```
 
-This requires ~10× fewer FLOPs and achieves **100% freeze-decision agreement** with the gradient-based method (validated over 20 random seeds).
+~10× cheaper, matches gradient-based freeze decisions exactly (20/20 seeds, Jaccard=1.0).
 
 ---
 
@@ -123,7 +123,7 @@ Conv2d(3→32, 3×3) → ReLU → MaxPool(2×2)
 | EWC | 0.7621 ± 0.0479 | 0.2133 ± 0.0474 | 255.3 ± 9.6 | — |
 | Naive | 0.7411 ± 0.0389 | 0.2344 ± 0.0386 | 189.1 ± 6.0 | — |
 
-EA-NPS matches ER within noise (0.9585 vs 0.9605, overlapping at 1σ) while training 13% faster because it uses SGD on the first task (no conflict with empty buffer). DER++ wins on accuracy but costs 44% more time.
+EA-NPS matches ER within noise (0.9585 vs 0.9605) at 13% less time — it runs SGD on task 1 (empty buffer = no conflict). DER++ is best overall accuracy but 44% slower.
 
 ![Pareto Frontier](vip_res/figures/pareto_frontier.png)
 
@@ -139,7 +139,7 @@ EA-NPS matches ER within noise (0.9585 vs 0.9605, overlapping at 1σ) while trai
 | EWC | 0.0200 ± 0.0001 | 296.0 ± 4.8 | — |
 | Naive | 0.0200 ± 0.0001 | 220.0 ± 6.0 | — |
 
-DER++ benefits from distillation (only method above chance). EA-NPS matches ER at 1.72× speedup due to simpler buffer management.
+DER++ is the only method above chance (distillation helps). EA-NPS matches ER at 1.72× speedup.
 
 ### 3. Battery-Accuracy Tradeoff
 
@@ -159,13 +159,13 @@ DER++ benefits from distillation (only method above chance). EA-NPS matches ER a
 | NPS-Only (no energy) | 0.9585 ± 0.0023 | +1.1% | SGD→ER→ER→ER→ER |
 | Energy-Only (no NPS) | 0.9364 ± 0.0092 | −18.1% | ER→ER→ER→FRZ→FRZ |
 
-Freeze costs 2.21 accuracy points but saves 17–18% of MACs. Both NPS and Energy signals are needed: NPS preserves accuracy when possible; Energy saves power when battery is critical.
+Freezing costs 2.21 accuracy points but saves 17–18% MACs. Both signals are needed: NPS preserves accuracy when possible, Energy saves power when battery is critical.
 
 ### 5. Zero-Backprop Proxy Validation
 
 ![Proxy Validation](vip_res/figures/proxy_validation.png)
 
-**20/20 seeds — Jaccard = 1.0.** The activation proxy always selects the same top freeze layer as the gradient-based method, at ~10× lower FLOP cost. Per-seed agreement data in [`vip_res/proxy_validation.csv`](vip_res/proxy_validation.csv).
+**20/20 seeds — Jaccard = 1.0.** Activation proxy selects the same freeze layers as gradient NPS every time, at ~10× lower FLOP cost. Per-seed data in [`vip_res/proxy_validation.csv`](vip_res/proxy_validation.csv).
 
 ---
 
