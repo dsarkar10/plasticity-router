@@ -1,0 +1,13 @@
+strategy,seed,accuracy,wall_time,macs_saved_pct,routes
+ea_nps_proxy,42,0.9327,190.5,19.4,er→er→er→freeze→freeze
+ea_nps_proxy,43,0.9298,194.6,19.4,er→er→er→freeze→freeze
+ea_nps_proxy,44,0.9246,198.2,19.4,er→er→er→freeze→freeze
+ea_nps_random,42,0.9402,198.6,19.4,er→er→er→freeze→freeze
+ea_nps_random,43,0.943,222.3,19.4,er→er→er→freeze→freeze
+ea_nps_random,44,0.9457,218.1,19.4,er→er→er→freeze→freeze
+early_stop,42,0.7581,361.4,14.3,es→es→es→es→es
+early_stop,43,0.7447,363.8,14.3,es→es→es→es→es
+early_stop,44,0.7664,357.6,14.3,es→es→es→es→es
+er,42,0.9588,330.5,0.0,er→er→er→er→er
+er,43,0.9617,330.6,0.0,er→er→er→er→er
+er,44,0.9622,327.1,0.0,er→er→er→er→er

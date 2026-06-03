@@ -1,0 +1,17 @@
+tau,seed,accuracy,macs_saved_pct,routes,wall_time
+0.0,42,0.921,22.9,er→er→er→freeze→freeze,139.5
+0.0,43,0.9192,22.9,er→er→er→freeze→freeze,144.3
+0.1,42,0.9191,22.9,er→er→er→freeze→freeze,157.6
+0.1,43,0.915,22.9,er→er→er→freeze→freeze,150.6
+0.2,42,0.9193,22.9,er→er→er→freeze→freeze,149.1
+0.2,43,0.9175,22.9,er→er→er→freeze→freeze,149.2
+0.3,42,0.9175,22.9,er→er→er→freeze→freeze,150.7
+0.3,43,0.9149,22.9,er→er→er→freeze→freeze,151.8
+0.4,42,0.919,22.9,er→er→er→freeze→freeze,154.9
+0.4,43,0.9143,22.9,er→er→er→freeze→freeze,157.3
+0.6,42,0.9159,22.9,er→er→er→freeze→freeze,157.3
+0.6,43,0.9146,22.9,er→er→er→freeze→freeze,153.5
+0.8,42,0.9182,22.9,er→er→er→freeze→freeze,153.1
+0.8,43,0.9155,22.9,er→er→er→freeze→freeze,154.8
+1.0,42,0.7958,14.3,sgd→sgd→sgd→sgd→sgd,155.4
+1.0,43,0.7556,14.3,sgd→sgd→sgd→sgd→sgd,157.0
