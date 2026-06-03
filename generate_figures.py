@@ -1,12 +1,3 @@
-"""
-generate_figures.py — Reproduce all publication figures from vip_res/ CSVs.
-
-Usage:
-    python generate_figures.py
-
-Output: vip_res/figures/*.png (200 DPI, publication quality)
-"""
-
 import os, re, ast, warnings
 import numpy as np
 import pandas as pd
@@ -27,7 +18,7 @@ plt.rcParams.update({
     "legend.fontsize": 11, "xtick.labelsize": 11, "ytick.labelsize": 11,
 })
 
-# ─── colourblind-friendly palette ──────────────────────────
+
 C = {
     "naive":  "#6c6c6c",   # gray
     "ewc":    "#e07b39",   # orange
@@ -58,9 +49,6 @@ def parse_list(s):
     return s if isinstance(s, list) else []
 
 
-# ═══════════════════════════════════════════════════════════
-# DATA LOADING
-# ═══════════════════════════════════════════════════════════
 pm = pd.read_csv(f"{VIP}/permuted_mnist_multiseed.csv")
 pm["task_accuracies"] = pm["task_accuracies"].apply(parse_list)
 pm["acc_matrix"] = pm["acc_matrix"].apply(parse_list)
@@ -81,9 +69,6 @@ pb = pd.read_csv(f"{VIP}/permuted_battery.csv")
 abl = pd.read_csv(f"{VIP}/ablation_fast.csv")
 
 
-# ═══════════════════════════════════════════════════════════
-# FIGURE 1: Pareto Frontier
-# ═══════════════════════════════════════════════════════════
 def fig_pareto_frontier():
     fig, ax = plt.subplots(figsize=(8, 6))
 
@@ -104,8 +89,6 @@ def fig_pareto_frontier():
                        marker=M[strat], color=C[strat], s=40, alpha=0.3,
                        edgecolors="black", linewidth=0.3, zorder=2)
 
-    # Pareto frontier line
-    # Frontier points: Naive(189s, 0.74) -> EA-NPS(253s, 0.958) -> DER++(364s, 0.972)
     frontier_x = [summary.loc["naive", "time_mean"],
                   summary.loc["ea_nps", "time_mean"],
                   summary.loc["derpp", "time_mean"]]
@@ -122,7 +105,6 @@ def fig_pareto_frontier():
     ax.set_xlim(140, 420)
     ax.set_ylim(0.65, 1.0)
 
-    # Annotate speedup
     ea_t = summary.loc["ea_nps", "time_mean"]
     er_t = summary.loc["er", "time_mean"]
     ax.annotate(f"EA-NPS: {ea_t:.0f}s\nER: {er_t:.0f}s\n{((er_t-ea_t)/er_t*100):.0f}% faster",
@@ -138,14 +120,10 @@ def fig_pareto_frontier():
     print(f"  ✓ pareto_frontier.png")
 
 
-# ═══════════════════════════════════════════════════════════
-# FIGURE 2: Learning Curves
-# ═══════════════════════════════════════════════════════════
 def fig_learning_curves():
     n_tasks = 5
     fig, axes = plt.subplots(1, 2, figsize=(15, 5.5))
 
-    # Left: average accuracy over tasks
     ax = axes[0]
     for strat in ORDER:
         sub = pm[pm.strategy == strat]
@@ -165,7 +143,6 @@ def fig_learning_curves():
     ax.legend(fontsize=10, ncol=2)
     ax.grid(True, alpha=0.25, linestyle="--")
 
-    # Right: forgetting per task (tasks 1..n-1 only — last task has no forgetting)
     ax = axes[1]
     n_forget = n_tasks - 1
     for strat in ORDER:
@@ -196,9 +173,6 @@ def fig_learning_curves():
     print(f"  ✓ learning_curves.png")
 
 
-# ═══════════════════════════════════════════════════════════
-# FIGURE 3: Battery Route Flowchart
-# ═══════════════════════════════════════════════════════════
 def fig_battery_routes():
     route_cmap = {"sgd": "#3b7a9e", "er": "#e07b39", "freeze": "#8b3a8b"}
     op_label = {"sgd": "SGD", "er": "ER", "freeze": "FRZ"}
@@ -232,7 +206,6 @@ def fig_battery_routes():
             color = route_cmap.get(op, "#cccccc")
             label = op_label.get(op, op.upper())
 
-            # box
             bx = t * slot_w + gap / 2
             by = 0.2
             rect = mpatches.FancyBboxPatch((bx, by), box_w, box_h,
@@ -243,11 +216,9 @@ def fig_battery_routes():
             ax.text(bx + box_w / 2, by + box_h / 2, label, ha="center", va="center",
                     fontsize=14, fontweight="bold", color="white")
 
-            # task label below
             ax.text(bx + box_w / 2, 0.05, f"Task {t+1}", ha="center", va="top",
                     fontsize=10, color="#555555", fontstyle="italic")
 
-            # bold arrow between boxes
             if t < n_tasks - 1:
                 x1 = bx + box_w
                 x2 = (t + 1) * slot_w + gap / 2
@@ -255,10 +226,9 @@ def fig_battery_routes():
                             arrowprops=dict(arrowstyle="->", color="#555555",
                                             lw=3, mutation_scale=25))
 
-        # scenario title + metrics on the right
-        acc = df.iloc[0]["final_accuracy"]
-        macs = df.iloc[0].get("macs_saved_pct", "N/A")
-        ax.text(xmax + 0.3, 0.55,
+    acc = df.iloc[0]["final_accuracy"]
+    macs = df.iloc[0].get("macs_saved_pct", "N/A")
+    ax.text(xmax + 0.3, 0.55,
                 f"{title}\nAcc={acc:.4f}\nMACs={macs}%",
                 ha="left", va="center", fontsize=10,
                 bbox=dict(boxstyle="round,pad=0.4", facecolor="#f0f0f0",
@@ -272,9 +242,7 @@ def fig_battery_routes():
     print(f"  ✓ battery_routes.png")
 
 
-# ═══════════════════════════════════════════════════════════
-# FIGURE 4: Per-Task Accuracy Matrices
-# ═══════════════════════════════════════════════════════════
+
 def _jagged_to_square(jagged):
     """Convert jagged acc_matrix list-of-lists to n×n ndarray (NaN for unseen)."""
     n = len(jagged)
@@ -314,7 +282,6 @@ def fig_per_task_accuracy():
         ax.set_ylabel("Trained Until")
         ax.set_title(STRAT_LABELS[strat], fontweight="bold")
 
-    # horizontal colorbar at the bottom
     cbar_ax = fig.add_axes([0.25, 0.02, 0.5, 0.025])
     fig.colorbar(im, cax=cbar_ax, orientation="horizontal", label="Accuracy")
     fig.suptitle("Per-Task Accuracy Matrices (seed=42)", fontweight="bold", y=1.02)
@@ -324,9 +291,7 @@ def fig_per_task_accuracy():
     print(f"  ✓ per_task_accuracy.png")
 
 
-# ═══════════════════════════════════════════════════════════
-# FIGURE 5: Accuracy Matrix + Forgetting (EA-NPS)
-# ═══════════════════════════════════════════════════════════
+
 def fig_accuracy_matrix_forgetting():
     sub = pm[pm.strategy == "ea_nps"]
     jagged = sub.iloc[0]["acc_matrix"]
@@ -335,7 +300,6 @@ def fig_accuracy_matrix_forgetting():
 
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
 
-    # Left: accuracy matrix
     ax = axes[0]
     cmap = plt.cm.YlOrRd.copy()
     cmap.set_bad("white", alpha=0.0)
@@ -356,7 +320,6 @@ def fig_accuracy_matrix_forgetting():
     ax.set_title("EA-NPS Accuracy Matrix", fontweight="bold")
     fig.colorbar(im, ax=ax, fraction=0.046, label="Accuracy")
 
-    # Right: forgetting bar chart (tasks 1..n-1 only — last task has no forgetting)
     ax = axes[1]
     n_forget = n - 1
     forget = [mat[i][i] - mat[-1][i] for i in range(n_forget)]
@@ -378,9 +341,7 @@ def fig_accuracy_matrix_forgetting():
     print(f"  ✓ accuracy_matrix_forgetting.png")
 
 
-# ═══════════════════════════════════════════════════════════
-# FIGURE 6: Layerwise Heatmap (requires model)
-# ═══════════════════════════════════════════════════════════
+
 def fig_layerwise_heatmap():
     import torch, torch.nn as nn
     from collections import OrderedDict
@@ -439,7 +400,6 @@ def fig_layerwise_heatmap():
         for li, layer in enumerate(layers):
             heatmap[li, t] = nps_dict.get(layer, 0.0)
 
-    # EWC Fisher
     model.eval()
     fisher = {}
     for name, p in model.named_parameters():
@@ -499,9 +459,7 @@ def fig_layerwise_heatmap():
     print(f"  ✓ layerwise_heatmap.png")
 
 
-# ═══════════════════════════════════════════════════════════
-# MAIN
-# ═══════════════════════════════════════════════════════════
+
 if __name__ == "__main__":
     print("Generating all figures from vip_res/ data...\n")
 

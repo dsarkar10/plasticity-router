@@ -112,16 +112,6 @@ class NPSComputer:
         return layer_nps
 
     def compute_layerwise_activation_nps(self, x_new: torch.Tensor, y_new: torch.Tensor) -> dict:
-        """
-        Zero-backprop proxy: compares forward activations instead of gradients.
-        ~10x cheaper than gradient-based layerwise NPS.
-
-        Registers forward hooks on weight-bearing layers (Linear, Conv2d),
-        passes old buffer and new batch through model (forward only),
-        computes cosine similarity of output activations per layer.
-
-        Returns dict keyed by parameter names (drop-in for compute_layerwise_nps).
-        """
         if len(self.buffer) < 5:
             return {n: 0.0 for n, _ in self.model.named_parameters()}
 

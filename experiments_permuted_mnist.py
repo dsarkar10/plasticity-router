@@ -1,14 +1,3 @@
-"""
-EA-NPS: Complete Experiments for Kaggle (GPU)
-==============================================
-1. Multi-seed PermutedMNIST (naive, ewc, er, ea_nps, seeds 42-44)
-2. Battery-accuracy tradeoff (SplitMNIST + PermutedMNIST, fast decay)
-3. Ablation study (Full vs NPS-Only vs Energy-Only)
-4. MACs quantification per route
-5. Full accuracy matrix for forgetting curves
-
-Upload to Kaggle and run with "Python + GPU" accelerator.
-"""
 import subprocess, sys, os, time, warnings
 import numpy as np
 import pandas as pd
@@ -16,25 +5,21 @@ import torch
 import torch.nn as nn
 from collections import OrderedDict, defaultdict
 
-# ── Install avalanche ──
 subprocess.check_call([sys.executable, "-m", "pip", "install", "avalanche-lib", "-q"])
 
 warnings.filterwarnings("ignore")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Device: {device}")
 
-# ── GPU optimizations ──
 if torch.cuda.is_available():
     torch.backends.cudnn.benchmark = True
     torch.set_num_threads(4)
 
-# ───────────────────────────── IMPORTS ─────────────────────────────
 from avalanche.benchmarks.classic import PermutedMNIST, SplitMNIST
 from avalanche.training import Naive, EWC, Replay as ExperienceReplay, DER as Derpp
 from avalanche.training.plugins import SupervisedPlugin
 from avalanche.training.templates import SupervisedTemplate
 
-# ─────────────────────── EA-NPS STRATEGY (inline) ──────────────────
 class EnergyProfiler:
     def __init__(self, model: nn.Module, input_shape: tuple):
         self.model = model
@@ -240,7 +225,6 @@ class EANPS(SupervisedTemplate):
                          eval_mb_size=eval_mb_size, device=device, plugins=all_plugins,
                          evaluator=evaluator, eval_every=eval_every, **base_kwargs)
 
-# ─────────────────────── EXPERIMENT ENGINE ─────────────────────────
 def make_model():
     return nn.Sequential(OrderedDict([
         ("flatten", nn.Flatten()),
@@ -308,7 +292,6 @@ def run_strategy(strategy_name, benchmark, seed, n_experiences=5, epochs_per_tas
     if len(results["task_accuracies"]) > 1:
         results["forgetting"] = results["task_accuracies"][0] - results["task_accuracies"][-1]
 
-    # ── Energy quantification ──
     if hasattr(strategy, 'ea_plugin'):
         plugin = strategy.ea_plugin
         results["routes"] = plugin.strategy_history
@@ -316,12 +299,10 @@ def run_strategy(strategy_name, benchmark, seed, n_experiences=5, epochs_per_tas
             macs_per_route = [plugin.profiler.estimate_macs(r) for r in plugin.strategy_history]
             results["macs_per_route"] = macs_per_route
             results["total_training_macs"] = sum(macs_per_route)
-            # NPS routing overhead (critical for fair accounting)
             num_freezes = sum(1 for r in plugin.strategy_history if r == "freeze")
             routing_macs = plugin.profiler.estimate_nps_routing_cost(len(plugin.strategy_history), num_freezes)
             results["routing_macs"] = routing_macs
             results["total_macs"] = results["total_training_macs"] + routing_macs
-            # Compare to always-ER baseline (with NPS routing overhead for fair comparison)
             er_macs_per = plugin.profiler.estimate_macs("er")
             er_routing = plugin.profiler.estimate_nps_routing_cost(len(plugin.strategy_history), 0)
             results["er_baseline_macs"] = er_macs_per * len(plugin.strategy_history) + er_routing
@@ -364,7 +345,6 @@ def run_experiment_set(label, strategies, seeds, dataset_name, epochs=3, ea_batt
     return df
 
 
-# ════════════════════════ EXPERIMENT 1 ══════════════════════════════
 print("\n" + "="*70)
 print("EXPERIMENT 1: Multi-seed PermutedMNIST (naive, ewc, er, ea_nps)")
 print("="*70)
@@ -387,7 +367,6 @@ summary = df1.groupby("strategy").agg(
 print(summary.to_string())
 
 
-# ════════════════════════ EXPERIMENT 2 ══════════════════════════════
 print("\n" + "="*70)
 print("EXPERIMENT 2: Battery-Accuracy Tradeoff (SplitMNIST)")
 print("="*70)
@@ -399,8 +378,6 @@ df2a = run_experiment_set(
     seeds=[42],
     dataset_name="split_mnist",
 )
-# Note: default decay is 0.05, so battery goes: 1.0, 0.95, 0.90, 0.85, 0.80 (never below 0.2)
-
 print("\n\n--- Fast decay (0.25/task) to trigger freeze ---")
 df2b = run_experiment_set(
     "EA-NPS on SplitMNIST — Fast decay 0.25/task",
@@ -410,13 +387,10 @@ df2b = run_experiment_set(
     ea_battery=1.0,
     ea_decay=0.25
 )
-# Battery trajectory: 1.0 → 0.75 → 0.50 → 0.25 → 0.05 (< 0.2 critical trigger at task 3)
-
 df2a.to_csv("battery_full.csv", index=False)
 df2b.to_csv("battery_fast.csv", index=False)
 print(f"\nSaved to battery_full.csv and battery_fast.csv  (copy to vip_res/)")
 
-# ════════════════════════ EXPERIMENT 3 ══════════════════════════════
 print("\n" + "="*70)
 print("EXPERIMENT 3: PermutedMNIST Battery Demo")
 print("="*70)
@@ -430,7 +404,6 @@ df3 = run_experiment_set(
 )
 df3.to_csv("permuted_battery.csv", index=False)
 
-# ════════════════════════ EXPERIMENT 4 ══════════════════════════════
 print("\n" + "="*70)
 print("EXPERIMENT 4: Ablation — NPS-Only vs Energy-Only vs Full EA-NPS")
 print("="*70)
@@ -444,7 +417,6 @@ df4 = run_experiment_set(
 df4.to_csv("ablation.csv", index=False)
 print(f"\nSaved to ablation.csv  (copy to vip_res/)")
 
-# ════════════════════════ EXPERIMENT 5 ══════════════════════════════
 print("\n" + "="*70)
 print("EXPERIMENT 5: Ablation with Fast Decay (meaningful comparison)")
 print("="*70)
@@ -459,12 +431,6 @@ df5 = run_experiment_set(
 )
 df5.to_csv("ablation_fast.csv", index=False)
 print(f"\nSaved to ablation_fast.csv  (copy to vip_res/)")
-print(f"\nExpected route divergence:")
-print(f"  Full EA-NPS:      sgd→er→er→freeze→freeze  (NPS-driven SGD T0 + freeze at low bat)")
-print(f"  NPS-Only:         sgd→er→er→er→er          (no freeze, always ER when NPS>threshold)")
-print(f"  Energy-Only:      er→er→er→freeze→freeze  (always ER when bat>20%, freeze when low)")
-
-# ════════════════════════ FINAL SUMMARY ═════════════════════════════
 print("\n" + "="*70)
 print("FINAL SUMMARY — All Experiments")
 print("="*70)
@@ -501,13 +467,6 @@ print(abl_fast_summary.to_string())
 
 print(f"\nCSVs saved: permuted_mnist_multiseed.csv, battery_full.csv, battery_fast.csv, permuted_battery.csv, ablation.csv, ablation_fast.csv")
 
-print(f"\n\nInterpretation:")
-print(f"  - Full EA-NPS: NPS-thresholded routing + energy-aware strategy selection + freeze fallback.")
-print(f"  - NPS-Only: selects ER whenever NPS > threshold; no freeze (ignores battery).")
-print(f"  - Energy-Only: freezes when battery < critical; otherwise ER (ignores NPS).")
-print(f"  - Fast decay triggers freeze at <20% battery, saving energy at accuracy cost.")
-print(f"  - MACs saved = cumulative MACs(EA-NPS) vs always-ER baseline.")
-
 print(f"\n{'='*70}")
-print(f"All CSVs saved. Download them from Kaggle output.")
+print(f"All CSVs saved.")
 print(f"{'='*70}")

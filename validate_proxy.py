@@ -1,13 +1,3 @@
-"""
-Validate Zero-Backprop Activation Proxy vs Gradient-Based Layerwise NPS
-=======================================================================
-Compares freeze-layer selections between:
-  - Gradient NPS (backward pass, expensive)
-  - Activation Cosine Similarity (forward pass only, ~10x cheaper)
-
-Usage: python validate_proxy.py
-Output: prints summary table, saves validation_results.csv + scatter plot
-"""
 import torch
 import torch.nn as nn
 import numpy as np
@@ -88,7 +78,7 @@ for seed in range(n_seeds):
 
 df = pd.DataFrame(all_rows)
 
-# ── Summary per seed ────────────────────────────────────
+# ── Summary per seed
 print("=" * 72)
 print("Zero-Backprop Proxy Validation — Summary")
 print("=" * 72)
@@ -131,7 +121,7 @@ print(f"At least 1 overlapping layer:         {(summary.overlap >= 1).sum()}/{n_
 summary.to_csv(f"{csv_dir}/proxy_validation.csv", index=False)
 print(f"\nSaved seed-level results → {csv_dir}/proxy_validation.csv")
 
-# ── Per-layer comparison ────────────────────────────────
+# ── Per-layer comparison
 per_layer = df.groupby("layer").agg(
     grad_mean=("gradient_nps", "mean"),
     grad_std=("gradient_nps", "std"),
@@ -145,10 +135,9 @@ for layer, row in per_layer.iterrows():
     delta = abs(row.grad_mean - row.act_mean)
     print(f"{layer:<20} {row.grad_mean:.4f}±{row.grad_std:.4f} {row.act_mean:.4f}±{row.act_std:.4f} {delta:.4f}")
 
-# ── Scatter plot ────────────────────────────────────────
+# ── Scatter plot
 fig, axes = plt.subplots(1, 2, figsize=(14, 5))
 
-# 1: Scatter all points
 ax = axes[0]
 colors = plt.cm.tab10(np.linspace(0, 1, len(per_layer)))
 for idx, (layer, row) in enumerate(per_layer.iterrows()):
@@ -164,7 +153,6 @@ ax.grid(True, alpha=0.3)
 ax.set_xlim(0, 1.05)
 ax.set_ylim(0, 1.05)
 
-# 2: Bar chart of Jaccard per seed
 ax = axes[1]
 jac_colors = ["#2ca02c" if j == 1.0 else "#d62728" for j in summary.jaccard]
 ax.bar(range(len(summary)), summary.jaccard, color=jac_colors, edgecolor="white")

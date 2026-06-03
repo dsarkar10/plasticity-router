@@ -1,25 +1,3 @@
-"""
-EA-NPS: CORe50 Experiments — Optimized for Dual T4 (Kaggle)
-=============================================================
-Safe optimizations only — training semantics and Avalanche loop unchanged:
-
-  ✅ GPU-cached datasets: all experiences pre-loaded into VRAM once.
-     CORe50-mini ~300 MB total — fits 30x on a single 14 GB T4.
-     Experience-level caching preserves Avalanche's .train()/.eval() machinery.
-  ✅ Single GPU (cuda:0): DataParallel scatter/gather overhead exceeds
-     compute savings for a 600K-param model.
-  ✅ No persistent_workers: avoids deadlocks with Avalanche's fork model.
-  ✅ AMP (autocast) on evaluation pass — training AMP left to Avalanche.
-  ✅ Direct GPU evaluation: test set pre-cached, no DataLoader at eval time.
-  ✅ Benchmark loaded ONCE, CPU cache reused across all 3 seeds.
-  ✅ cudnn.benchmark=True, TF32 enabled (no-op on T4, safe).
-
-  ❌ Avalanche training loop NOT replaced — identical implicit regularization
-     across all strategies (required for fair comparison, TMLR standard).
-  ❌ Per-task evaluation NOT removed — learning curves and forgetting
-     metrics are expected by reviewers.
-"""
-
 from avalanche.training.templates import SupervisedTemplate
 from avalanche.training.plugins import SupervisedPlugin
 from avalanche.training import Naive, EWC, Replay as ExperienceReplay, DER as Derpp
@@ -43,7 +21,6 @@ subprocess.check_call([sys.executable, "-m", "pip",
 warnings.filterwarnings("ignore")
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
-# ── GPU SETUP ──────────────────────────────────────────────────────
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 NUM_GPUS = torch.cuda.device_count()
 print(f"Device: {device}  |  GPUs available: {NUM_GPUS}")
@@ -67,21 +44,8 @@ BATCH_SIZE = 512
 EVAL_BATCH = 2048
 
 
-# ══════════════════════════════════════════════════════════════════
-# EXPERIENCE-LEVEL TENSOR CACHE (FIXED)
-# We attach cached tensors to the Experience object, NOT the Dataset.
-# Avalanche frequently clones/replaces datasets for .train()/.eval() modes,
-# but the Experience object persists — making it the safe attachment point.
-# ══════════════════════════════════════════════════════════════════
-def cache_experience(exp):
-    """
-    Materialise an Avalanche experience's dataset into contiguous CPU tensors.
-    Attaches them as _cached_X and _cached_Y to the Experience object to avoid
-    breaking Avalanche's dataset machinery (.train()/.eval() cloning).
 
-    Returns (X_cpu, Y_cpu) for convenience, but primary effect is side-effect
-    attachment to exp._cached_X and exp._cached_Y.
-    """
+def cache_experience(exp):
     loader = torch.utils.data.DataLoader(
         exp.dataset, batch_size=2048, shuffle=False,
         num_workers=2, pin_memory=False, persistent_workers=False,
@@ -94,17 +58,14 @@ def cache_experience(exp):
     X = torch.cat(xs)
     Y = torch.cat(ys)
 
-    # Attach to the Experience object, NOT the dataset!
-    # Avalanche clones datasets internally; Experience persists.
     exp._cached_X = X
     exp._cached_Y = Y
 
     return X, Y
 
 
-# ── FAST GPU EVALUATION ────────────────────────────────────────────
+
 def build_gpu_test_cache(dataset) -> tuple[torch.Tensor, torch.Tensor]:
-    """Load test set directly into GPU VRAM for zero-overhead evaluation."""
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=2048, shuffle=False,
         num_workers=2, pin_memory=True, persistent_workers=False,
@@ -123,7 +84,6 @@ def build_gpu_test_cache(dataset) -> tuple[torch.Tensor, torch.Tensor]:
 @torch.no_grad()
 def evaluate_gpu(model: nn.Module,
                  X: torch.Tensor, Y: torch.Tensor) -> float:
-    """Fully vectorised evaluation on pre-cached GPU tensors. No DataLoader."""
     model.eval()
     correct = 0
     for s in range(0, X.size(0), EVAL_BATCH):
@@ -134,7 +94,7 @@ def evaluate_gpu(model: nn.Module,
     return correct / X.size(0)
 
 
-# ── MODEL ──────────────────────────────────────────────────────────
+
 def make_core50_model() -> nn.Module:
     return nn.Sequential(OrderedDict([
         ("conv1",   nn.Conv2d(3,   32,  3, padding=1, bias=False)),
@@ -157,7 +117,7 @@ def make_core50_model() -> nn.Module:
     ])).to(device)
 
 
-# ── ENERGY PROFILER ────────────────────────────────────────────────
+
 class EnergyProfiler:
     def __init__(self, model: nn.Module, input_shape: tuple):
         self.model = model
@@ -202,7 +162,7 @@ class EnergyProfiler:
         return (n_tasks + n_freeze) * self._base_macs() * 6.0
 
 
-# ── NPS COMPUTER ───────────────────────────────────────────────────
+
 class NPSComputer:
     def __init__(self, model: nn.Module, buffer: list):
         self.model = model
@@ -259,7 +219,6 @@ class NPSComputer:
         }
 
     def compute_layerwise_activation_nps(self, Xn, Yn) -> dict:
-        """Zero-backprop proxy: forward activations only, no gradients. ~10x cheaper."""
         if len(self.buffer) < 5:
             return {n: 0.0 for n, _ in self.model.named_parameters()}
         Xo, _ = self._buf_sample(32)
@@ -308,7 +267,7 @@ class NPSComputer:
         return layer_nps
 
 
-# ── EA-NPS PLUGIN ──────────────────────────────────────────────────
+
 class EANPSPlugin(SupervisedPlugin):
     def __init__(self, input_shape=INPUT_SHAPE, nps_threshold=0.2,
                  mem_size=2000, battery_critical=0.2, use_activation_proxy=False):
@@ -358,16 +317,14 @@ class EANPSPlugin(SupervisedPlugin):
 
     def before_training_exp(self, strategy, *args, **kwargs):
         self.battery = max(0.05, self.battery - self.battery_decay)
-        exp = strategy.experience  # Get the Experience object directly!
+        exp = strategy.experience
 
-        # Use cached tensors directly if available to avoid DataLoader overhead
         if hasattr(exp, '_cached_X') and hasattr(exp, '_cached_Y'):
             X_cpu, Y_cpu = exp._cached_X, exp._cached_Y
             idx = torch.randperm(len(X_cpu))[:512]
             Xn = X_cpu[idx].to(device, non_blocking=True)
             Yn = Y_cpu[idx].to(device, non_blocking=True)
         else:
-            # Fallback to DataLoader if cache is missing
             dl = torch.utils.data.DataLoader(
                 exp.dataset, batch_size=512, shuffle=True, num_workers=0, pin_memory=False)
             Xn, Yn = next(iter(dl))
@@ -430,7 +387,6 @@ class EANPSPlugin(SupervisedPlugin):
             for i in range(len(X_cpu)):
                 self.buffer.append((X_cpu[i], int(Y_cpu[i].item()), exp_id))
         else:
-            # Fallback to DataLoader if cache is missing
             dl = torch.utils.data.DataLoader(
                 exp.dataset, batch_size=2048, shuffle=False, num_workers=0, pin_memory=False)
             for batch in dl:
@@ -454,7 +410,7 @@ class EANPSPlugin(SupervisedPlugin):
             self.buffer = [self.buffer[i] for i in sorted(kept)]
 
 
-# ── EA-NPS STRATEGY ────────────────────────────────────────────────
+
 class EANPS(SupervisedTemplate):
     def __init__(self, *, model, optimizer, criterion=nn.CrossEntropyLoss(),
                  input_shape=INPUT_SHAPE, nps_threshold=0.2, mem_size=2000,
@@ -476,16 +432,9 @@ class EANPS(SupervisedTemplate):
         )
 
 
-# ── STRATEGY RUNNER ────────────────────────────────────────────────
+
 def run_strategy(name, exp_cache_pairs, X_test_gpu, Y_test_gpu, seed,
                  epochs=3, mem_size=2000):
-    """
-    exp_cache_pairs : list of AvalancheExperience objects with _cached_X/_cached_Y attached.
-      - AvalancheExperience is passed untouched to strategy.train() so
-        Avalanche's full .train()/.eval() dataset machinery is preserved.
-      - Cached tensors are attached to the Experience object for fast access.
-    X_test_gpu / Y_test_gpu : test tensors already on cuda:0.
-    """
     torch.manual_seed(seed)
     np.random.seed(seed)
     torch.cuda.empty_cache()
@@ -521,11 +470,9 @@ def run_strategy(name, exp_cache_pairs, X_test_gpu, Y_test_gpu, seed,
     t0 = time.time()
 
     for exp_id, exp in enumerate(exp_cache_pairs):
-        # Pass the genuine Avalanche experience — .train() / .eval() intact
         strategy.train(exp)
         torch.cuda.synchronize()
 
-        # Fast evaluation on pre-cached GPU tensors
         acc = evaluate_gpu(model, X_test_gpu, Y_test_gpu)
         task_accs.append(acc)
         print(f"  Task {exp_id}: acc={acc:.4f}  ({exp_id+1}/9 exps)")
@@ -563,13 +510,12 @@ def run_strategy(name, exp_cache_pairs, X_test_gpu, Y_test_gpu, seed,
     return results
 
 
-# ── EXPERIMENT ENGINE ──────────────────────────────────────────────
+# ── EXPERIMENT ENGINE
 def run_experiment(strategies, seeds):
     print(f"\n{'#'*70}")
     print("# CORe50 NC — All Strategies, 3 seeds")
     print(f"{'#'*70}")
 
-    # ── Load benchmark and build GPU-cached dataset replacements ──
     print("\n--- Loading CORe50 benchmark (once for all seeds) ---")
     benchmark = CORe50(scenario="nc", mini=True, object_lvl=True)
     n_exp = len(benchmark.train_stream)
@@ -578,20 +524,16 @@ def run_experiment(strategies, seeds):
     print("  Pre-caching all experiences into contiguous CPU tensors...")
     t_cache = time.time()
 
-    # Materialise each experience and attach cached tensors to the Experience object
     experiences_with_cache = []
     total_bytes = 0
     for i, exp in enumerate(benchmark.train_stream):
-        X, Y = cache_experience(exp)  # Attaches _cached_X/Y to exp
-        # DO NOT replace exp._dataset — preserves Avalanche's .train()/.eval() machinery
-
+        X, Y = cache_experience(exp)
         experiences_with_cache.append(exp)
         nb = X.element_size() * X.nelement()
         total_bytes += nb
         print(f"    exp {i}: {tuple(X.shape)}  "
               f"{nb/1024**2:.0f} MB  classes={Y.unique().numel()}")
 
-    # Test set goes directly to GPU for zero-overhead evaluation
     print("  Caching test set to GPU...")
     X_test_gpu, Y_test_gpu = build_gpu_test_cache(
         benchmark.test_stream[0].dataset)
@@ -601,7 +543,6 @@ def run_experiment(strategies, seeds):
     print(f"  Total train cache: {total_bytes/1024**2:.0f} MB (CPU tensors)")
     print(f"  Cache build time: {time.time()-t_cache:.1f}s")
 
-    # ── Run all strategies × seeds ─────────────────────────────────
     all_rows = []
     for seed in seeds:
         print(f"\n{'='*60}\n  SEED {seed}\n{'='*60}")
@@ -639,7 +580,7 @@ def run_experiment(strategies, seeds):
     return df
 
 
-# ── MAIN ───────────────────────────────────────────────────────────
+# ── MAIN
 if __name__ == "__main__":
     print("\n" + "="*70)
     print("CORe50 — Safe GPU Optimizations, Avalanche Loop Preserved")

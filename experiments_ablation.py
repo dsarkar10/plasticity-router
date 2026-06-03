@@ -1,11 +1,3 @@
-"""
-EA-NPS: Ablation with Fast Decay (standalone, no redo)
-=======================================================
-Runs only: Full vs NPS-Only vs Energy-Only on PermutedMNIST
-with fast battery decay (0.25/task) to trigger freeze divergence.
-
-3 seeds × 3 variants × 5 tasks = 45 task evaluations total.
-"""
 import subprocess, sys, os, time, warnings
 import numpy as np
 import pandas as pd
@@ -200,7 +192,6 @@ class EANPS(SupervisedTemplate):
                          evaluator=evaluator, eval_every=eval_every, **base_kwargs)
 
 
-# ─────────────────────── EXPERIMENT ENGINE ─────────────────────────
 def make_model():
     return nn.Sequential(OrderedDict([
         ("flatten", nn.Flatten()),
@@ -291,7 +282,6 @@ def run_experiment(label, strategies, seeds, dataset_name="permuted_mnist"):
     return df
 
 
-# ════════════════════════ MAIN ══════════════════════════════════════
 print("\n" + "="*70)
 print("ABLATION WITH FAST DECAY (0.25/task)")
 print("="*70)
